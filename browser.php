@@ -210,6 +210,9 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 			<button id="saveButton" onclick="saveFile()" disabled>Save</button>
 			<button id="runButton" onclick="runFile()">Run</button>
 			<button id="runNewWindowButton" onclick="runFileInNewWindow()">Run in New Window</button>
+			<label>
+				<input type="checkbox" id="autoRunCheckbox" checked> Automatic Run
+			</label>
 		</div>
 
         <!-- Horizontal draggable separator -->
@@ -251,11 +254,13 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 		// Update UI based on unlock state
 		function updateUI() {
 			const unlocked = document.cookie.includes('unlocked=true');
+			const fileSelected = document.querySelector('#fileList a.active') !== null;
+
 			document.getElementById('addSubdirectoryButton').disabled = !unlocked;
 			document.getElementById('newButton').disabled = !unlocked;
-			document.getElementById('renameButton').disabled = !unlocked || !document.querySelector('#fileList a.active');
-			document.getElementById('saveButton').disabled = !unlocked || !document.querySelector('#fileList a.active');
-			document.getElementById('deleteButton').disabled = !unlocked;
+			document.getElementById('renameButton').disabled = !unlocked || !fileSelected;
+			document.getElementById('saveButton').disabled = !unlocked || !fileSelected;
+			document.getElementById('deleteButton').disabled = !unlocked || !fileSelected;
 			document.getElementById('deleteDirectoryButton').disabled = !unlocked;
 		}
 
@@ -272,21 +277,49 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             window.location.href = `browser.php?dir=${dir}`;
         }
 
-        // Load content of the selected file
-        function loadFileContent(folder, file) {
-            fetch(`get_file.php?folder=${folder}&file=${file}`)
-                .then(response => response.text())
-                .then(content => {
-                    const fileContent = document.getElementById('fileContent');
-                    fileContent.value = content;
-                    fileContent.disabled = false;
-                    document.getElementById('saveButton').disabled = !document.cookie.includes('unlocked=true');
-                    document.getElementById('runButton').disabled = false;
-                    document.getElementById('runNewWindowButton').disabled = false;
-                    document.getElementById('outputFrame').src = 'about:blank';
-                    document.getElementById('currentFile').textContent = file;
-                });
-        }
+		// Load content of the selected file and run it
+		// Load content of the selected file
+		function loadFileContent(folder, file) {
+			const fileContent = document.getElementById('fileContent');
+			const outputFrame = document.getElementById('outputFrame');
+			const autoRunCheckbox = document.getElementById('autoRunCheckbox');
+
+			// List of file types that can be displayed in the editor
+			const editableFileTypes = ['.html', '.htm', '.php', '.txt', '.cfg', '.yml'];
+
+			// Get the file extension
+			const fileExtension = file.substring(file.lastIndexOf('.')).toLowerCase();
+
+			if (editableFileTypes.includes(fileExtension)) {
+				// Load the file content into the editor
+				fetch(`get_file.php?folder=${folder}&file=${file}`)
+					.then(response => response.text())
+					.then(content => {
+						fileContent.value = content;
+						fileContent.disabled = false;
+						document.getElementById('saveButton').disabled = !document.cookie.includes('unlocked=true');
+						document.getElementById('runButton').disabled = false;
+						document.getElementById('runNewWindowButton').disabled = false;
+						document.getElementById('currentFile').textContent = file;
+
+						// Automatically run the file if "Automatic Run" is checked
+						if (autoRunCheckbox.checked) {
+							runFile();
+						}
+					});
+			} else {
+				// For non-editable file types, clear the editor and render the file in the output panel
+				fileContent.value = '';
+				fileContent.disabled = true;
+				document.getElementById('saveButton').disabled = true;
+				document.getElementById('runButton').disabled = false;
+				document.getElementById('runNewWindowButton').disabled = false;
+				document.getElementById('currentFile').textContent = file;
+
+				// Render the file directly in the output panel
+				outputFrame.src = `${folder}/${file}`;
+			}
+		}
 
 		// Rename the selected file
 		function renameFile() {
@@ -344,13 +377,13 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             //.then(message => alert(message));
         }
 
-        // Run the file in the iframe
-        function runFile() {
-            const currentDir = "<?php echo $currentDir; ?>";
-            const file = document.querySelector('#fileList a.active').textContent;
-            const outputFrame = document.getElementById('outputFrame');
-            outputFrame.src = `${currentDir}/${file}`;
-        }
+		// Run the file in the iframe
+		function runFile() {
+			const currentDir = "<?php echo $currentDir; ?>";
+			const file = document.querySelector('#fileList a.active').textContent;
+			const outputFrame = document.getElementById('outputFrame');
+			outputFrame.src = `${currentDir}/${file}`;
+		}
 
         // Run the file in a new window
         function runFileInNewWindow() {
@@ -502,15 +535,15 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             document.getElementById('deleteDirectoryButton').disabled = dirCheckboxes.length === 0 || !document.cookie.includes('unlocked=true');
         }
 
-        // Highlight the selected file
-        document.addEventListener('click', (e) => {
-            if (e.target.tagName === 'A') {
-                const links = document.querySelectorAll('#fileList a');
-                links.forEach(link => link.classList.remove('active'));
-                e.target.classList.add('active');
-                document.getElementById('saveButton').disabled = !document.cookie.includes('unlocked=true');
-            }
-        });
+		// Highlight the selected file and update button states
+		document.addEventListener('click', (e) => {
+			if (e.target.tagName === 'A') {
+				const links = document.querySelectorAll('#fileList a');
+				links.forEach(link => link.classList.remove('active'));
+				e.target.classList.add('active');
+				updateUI(); // Update button states when a file is selected
+			}
+		});
 
         // Draggable vertical separator functionality
         const verticalSeparator = document.getElementById('vertical-separator');
