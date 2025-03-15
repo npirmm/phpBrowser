@@ -14,7 +14,7 @@ $files = array_filter(glob($currentDir . '/*'), 'is_file');
 $parentDir = dirname($currentDir);
 
 // Password protection
-$password = 'Nicolas'; // Change this to your desired password
+$password = 'blablabla'; // Change this to your desired password
 $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 ?>
 
