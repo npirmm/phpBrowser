@@ -74,20 +74,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         #editor-header h2 {
             margin: 0;
         }
-					 
-							  
-							
-		 
-        textarea {
-            width: 100%;
-            height: 300px; /* Default height */
-            font-family: monospace;
-            background: #2d2d2d;
-            color: #ccc;
-            border: 1px solid #444;
-            padding: 10px;
-            box-sizing: border-box;
-        }
+
         iframe {
             width: 100%;
             flex: 1;
@@ -106,7 +93,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             margin: 5px 0;
         }
         .button-container {
-            margin-bottom: 10px;
+			margin: 5px 0;
             margin-top: 10px; /* Added space above buttons */
         }
         .button-container button {
@@ -117,6 +104,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         .file-item, .directory-item {
             display: flex;
             align-items: center;
+			margin: 2px 0;
         }
         .file-item input[type="checkbox"], .directory-item input[type="checkbox"] {
             margin-right: 5px;
@@ -207,6 +195,50 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 			opacity: 0.5; /* Grey out the label text */
 			cursor: not-allowed; /* Change the cursor to indicate it's not clickable */
 		}
+		/* Reduce spacing between sections */
+		fieldset {
+			margin-bottom: 10px;
+			padding: 10px;
+			border: 1px solid #ccc;
+			border-radius: 5px;
+		}
+
+		legend {
+			font-weight: bold;
+		}
+
+		/* Reduce spacing within lists */
+		ul {
+			margin: 5px 0;
+			padding-left: 20px;
+		}
+
+		/* Reduce spacing for buttons */
+		.button-container {
+			margin: 5px 0;
+		}
+
+		/* Style for directory and file items */
+		.directory-item, .file-item {
+			display: flex;
+			align-items: center;
+			margin: 2px 0;
+		}
+
+		.directory-item {
+			cursor: pointer;
+			padding: 5px;
+			background: #e0e0e0;
+			border-radius: 3px;
+		}
+
+		.directory-item:hover {
+			background: #d0d0d0;
+		}
+		#withPathCheckbox:disabled + label {
+			color: grey;
+			cursor: not-allowed;
+		}
 			</style>
 </head>
 <body>
@@ -214,69 +246,66 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 	<!-- Sidebar for folder and file selection -->
 	<div id="sidebar">
 		<!-- Current Directory -->
-		<p><u>Current Directory:</u> <strong><?php echo $currentDir; ?></strong></p>
+<!-- Fieldset for Current Directory and Navigation -->
+<fieldset style="margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+    <legend><strong>Current Directory</strong></legend>
+    <p style="margin: 5px 0;"><u>Current Directory:</u> <strong><?php echo $currentDir; ?></strong></p>
+    <div style="margin: 5px 0;">
+        <button id="rootButton" onclick="navigateTo('<?php echo $rootDir; ?>')" <?php echo $currentDir === $rootDir ? 'disabled' : ''; ?>>/</button>
+        <button id="upButton" onclick="navigateTo('<?php echo $parentDir; ?>')" <?php echo $currentDir === $rootDir ? 'disabled' : ''; ?>>↑</button>
+    </div>
+</fieldset>
 
-		<!-- Root and Up buttons -->
-		<div class="button-container">
-			<button id="rootButton" onclick="navigateTo('<?php echo $rootDir; ?>')" <?php echo $currentDir === $rootDir ? 'disabled' : ''; ?>>Root</button>
-			<button id="upButton" onclick="navigateTo('<?php echo $parentDir; ?>')" <?php echo $currentDir === $rootDir ? 'disabled' : ''; ?>>Up</button>
-		</div>
+<!-- Fieldset for Subdirectories -->
+<fieldset style="margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+    <legend><strong>Subdirectories</strong></legend>
+    <ul id="directoryList" style="margin: 5px 0; padding-left: 20px;">
+        <?php foreach ($subdirs as $dir): ?>
+            <li class="directory-item">
+                <input type="checkbox" value="<?php echo basename($dir); ?>" onchange="updateDeleteButtonState()">
+                <span onclick="navigateTo('<?php echo $dir; ?>')"><?php echo basename($dir); ?></span>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+    <div style="margin: 5px 0;">
+        <button onclick="addSubdirectory()" id="addSubdirectoryButton" <?php echo $unlocked ? '' : 'disabled'; ?>>Add Subdirectory</button>
+        <button onclick="deleteSubdirectory()" id="deleteDirectoryButton" disabled>Delete Subdirectory</button>
+    </div>
+</fieldset>
 
-		<!-- Subdirectories -->
-		<p><u>Subdirectories:</u></p>
-		<ul id="directoryList">
-			<?php foreach ($subdirs as $dir): ?>
-				<li class="directory-item">
-					<input type="checkbox" value="<?php echo basename($dir); ?>" onchange="updateDeleteButtonState()">
-					<span onclick="navigateTo('<?php echo $dir; ?>')"><?php echo basename($dir); ?></span>
-				</li>
-			<?php endforeach; ?>
-		</ul>
-
-        <!-- Add and Delete Directory buttons -->
-        <div class="button-container">
-            <button onclick="addSubdirectory()" id="addSubdirectoryButton" <?php echo $unlocked ? '' : 'disabled'; ?>>Add Subdirectory</button>
-            <button onclick="deleteSubdirectory()" id="deleteDirectoryButton" disabled>Delete Subdirectory</button>
-        </div>
-
-        <!-- Files -->
-        <p><u>Files:</u></p>
-        <ul id="fileList">
-            <?php foreach ($files as $file): ?>
-                <li class="file-item">
-                    <input type="checkbox" value="<?php echo basename($file); ?>" onchange="updateDeleteButtonState()">
-                    <a href="#" onclick="loadFileContent('<?php echo $currentDir; ?>', '<?php echo basename($file); ?>')"><?php echo basename($file); ?></a>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-
-        <!-- New, Upload, Download and Delete buttons -->
-		<div>
-			<!-- First Line: New & Delete -->
-			<div style="margin-bottom: 10px;">
-				<button id="newButton" onclick="createNewFile()" <?php echo $unlocked ? '' : 'disabled'; ?>>New</button>
-				<button id="deleteButton" onclick="deleteFiles()" disabled>Delete</button>
-			</div>
-
-			<!-- Second Line: Upload, Download, and Checkbox -->
-			<div>
-				<button id="uploadButton" onclick="openUploadPopup()" <?php echo $unlocked ? '' : 'disabled'; ?>>Upload</button>
-				<button id="downloadButton" onclick="downloadFiles()" disabled>Download</button>
-				<label for="withPathCheckbox" style="margin-left: 10px;">
-					<input type="checkbox" id="withPathCheckbox" disabled> With Path
-				</label>
-			</div>
-		</div>
+<!-- Fieldset for Files -->
+<fieldset style="margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+    <legend><strong>Files</strong></legend>
+    <ul id="fileList" style="margin: 5px 0; padding-left: 20px;">
+        <?php foreach ($files as $file): ?>
+            <li class="file-item">
+                <input type="checkbox" value="<?php echo basename($file); ?>" onchange="updateDeleteButtonState()">
+                <a href="#" onclick="loadFileContent('<?php echo $currentDir; ?>', '<?php echo basename($file); ?>')"><?php echo basename($file); ?></a>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+    <div style="margin: 5px 0;">
+        <button id="newButton" onclick="createNewFile()" <?php echo $unlocked ? '' : 'disabled'; ?>>New</button>
+        <button id="deleteButton" onclick="deleteFiles()" disabled>Delete</button>
+    </div>
+    <div style="margin: 5px 0;">
+        <button id="uploadButton" onclick="openUploadPopup()" <?php echo $unlocked ? '' : 'disabled'; ?>>Upload</button>
+        <button id="downloadButton" onclick="downloadFiles()" disabled>Download</button>
+        <label for="withPathCheckbox" style="margin-left: 10px;">
+            <input type="checkbox" id="withPathCheckbox" disabled> With Path
+        </label>
+    </div>
+</fieldset>
 		<p></p>
         <!-- Password form -->
-        <div class="password-form">
-            <?php if (!$unlocked): ?>
-                <input type="password" id="passwordInput" placeholder="Enter password">
-                <button onclick="unlock()">Unlock</button>
-            <?php else: ?>
-                <button onclick="lock()">Lock</button>
-            <?php endif; ?>
-        </div>
+		<div class="password-form">
+			<?php if (!$unlocked): ?>
+				<input type="password" id="passwordInput" placeholder="Enter password" onkeypress="handleKeyPress(event)">
+				<button onclick="unlock()">Unlock</button>
+			<?php else: ?>
+				<button onclick="lock()">Lock</button>
+			<?php endif; ?>
+		</div>
     </div>
 
     <!-- Vertical draggable separator -->
@@ -346,6 +375,11 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         // Password protection
         const password = 'Nicolas'; // Change this to your desired unlocking password
 
+		function handleKeyPress(event) {
+			if (event.key === 'Enter') {
+				unlock();
+			}
+		}
         // Unlock functionality
         function unlock() {
             const passwordInput = document.getElementById('passwordInput').value;
@@ -530,6 +564,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
                     // alert(message);
 					showTempPopup(message);
                     window.location.reload(); // Refresh the page to show the new file
+					loadFileContent(currentDir, fileName); // Open the new file in the editor
                 } else {
                     alert(message); // Show error message
                 }
@@ -1055,6 +1090,52 @@ function openFullEditor() {
 				showTempPopup('An error occurred while downloading files.');
 			});
 		}
+		
+		function downloadFilesWithPath() {
+			const checkboxes = document.querySelectorAll('#fileList input[type="checkbox"]:checked');
+			if (checkboxes.length === 0) {
+				showTempPopup('No files selected.');
+				return;
+			}
+
+			const currentDir = "<?php echo $currentDir; ?>";
+			const filesToDownload = Array.from(checkboxes).map(checkbox => {
+				const fileName = checkbox.value;
+				return `${currentDir}/${fileName}`; // Include the full relative path
+			});
+
+			fetch('downloadzipwithfullpath.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					folder: "<?php echo $rootDir; ?>", // Always use the root directory as the base
+					files: filesToDownload,
+				}),
+			})
+			.then(response => {
+				if (response.ok) {
+					return response.blob();
+				} else {
+					throw new Error('Failed to download files.');
+				}
+			})
+			.then(blob => {
+				const url = window.URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = 'files_with_path.zip'; // Default name for the ZIP file
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);
+			})
+			.catch(error => {
+				console.error('Error:', error);
+				showTempPopup('An error occurred while downloading files.');
+			});
+		}
 
 		// Update Download Button State
 		function updateDeleteButtonState() {
@@ -1088,17 +1169,3 @@ function openFullEditor() {
 
 </body>
 </html>
-		 
-
-										
-										 
-																			 
-																		 
-		 
-
-								  
-				   
-								  
-			 
-	   
-	   

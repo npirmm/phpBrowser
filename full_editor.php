@@ -8,6 +8,10 @@ $currentFile = isset($_GET['file']) ? $_GET['file'] : '';
 if (strpos($currentDir, $rootDir) !== 0) {
     $currentDir = $rootDir;
 }
+
+// Password protection
+$password = 'Nicolas'; // Change this to your desired password
+$unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 ?>
 
 <!DOCTYPE html>
@@ -50,7 +54,28 @@ if (strpos($currentDir, $rootDir) !== 0) {
             padding: 10px;
             background: #f4f4f4;
             border-top: 1px solid #ccc;
-            text-align: right;
+            display: flex;
+            justify-content: space-between; /* Align buttons to the left and right */
+        }
+        #editor-footer button {
+            padding: 5px 10px;
+            margin: 0 5px;
+            cursor: pointer;
+            background-color: #4CAF50; /* Green background */
+            color: white; /* White text */
+            border: none;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        #editor-footer button:hover {
+            background-color: #45a049; /* Darker green on hover */
+        }
+        #editor-footer button:active {
+            background-color: #3d8b40; /* Even darker green on click */
+        }
+        #editor-footer button:disabled {
+            background-color: #ccc; /* Grey background for disabled buttons */
+            cursor: not-allowed; /* Change cursor for disabled buttons */
         }
     </style>
 </head>
@@ -81,7 +106,8 @@ if (strpos($currentDir, $rootDir) !== 0) {
 
     <!-- Editor Footer -->
     <div id="editor-footer">
-        <button id="saveButton" onclick="saveFile()">Save</button>
+        <button id="copyButton" onclick="copyContent()">Copy</button>
+        <button id="saveButton" onclick="saveFile()" <?php echo $unlocked ? '' : 'disabled'; ?>>Save</button>
     </div>
 
     <!-- CodeMirror JavaScript -->
@@ -140,6 +166,25 @@ if (strpos($currentDir, $rootDir) !== 0) {
             });
         }
 
+        // Copy the editor content to the clipboard
+        function copyContent() {
+            const content = editor.getValue();
+            navigator.clipboard.writeText(content)
+                .then(() => {
+                    alert('Content copied to clipboard!');
+                })
+                .catch((error) => {
+                    console.error('Failed to copy content: ', error);
+                    alert('Failed to copy content. Please try again.');
+                });
+        }
+
+        // Check unlock status and update the Save button
+        function updateSaveButtonState() {
+            const isUnlocked = document.cookie.includes('unlocked=true');
+            document.getElementById('saveButton').disabled = !isUnlocked;
+        }
+
         // Change the language mode
         function changeLanguage() {
             const languageSelect = document.getElementById('languageSelect');
@@ -184,12 +229,13 @@ if (strpos($currentDir, $rootDir) !== 0) {
                 case 'sh':
                     return 'shell';
                 default:
-				return 'plaintext';
+                    return 'plaintext';
             }
         }
 
         // Load the file content on page load
         loadFileContent();
+        updateSaveButtonState(); // Add this line
     </script>
 </body>
 </html>
