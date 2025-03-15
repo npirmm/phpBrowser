@@ -184,6 +184,29 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 			opacity: 0;
 			transition: opacity 0.3s ease-in-out;
 		}
+
+		#uploadPopup {
+			background: #fff;
+			padding: 20px;
+			border-radius: 5px;
+			box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+		}
+
+		#uploadOverlay {
+			background: rgba(0, 0, 0, 0.5);
+		}
+		
+		/* Style for the disabled checkbox */
+		input[type="checkbox"]:disabled {
+			opacity: 0.5; /* Make the checkbox appear greyed out */
+			cursor: not-allowed; /* Change the cursor to indicate it's not clickable */
+		}
+
+		/* Style for the label when the checkbox is disabled */
+		input[type="checkbox"]:disabled + label {
+			opacity: 0.5; /* Grey out the label text */
+			cursor: not-allowed; /* Change the cursor to indicate it's not clickable */
+		}
 			</style>
 </head>
 <body>
@@ -227,11 +250,23 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             <?php endforeach; ?>
         </ul>
 
-        <!-- New and Delete buttons -->
-        <div>
-            <button id="newButton" onclick="createNewFile()" <?php echo $unlocked ? '' : 'disabled'; ?>>New</button>
-            <button id="deleteButton" onclick="deleteFiles()" disabled>Delete</button>
-        </div>
+        <!-- New, Upload, Download and Delete buttons -->
+		<div>
+			<!-- First Line: New & Delete -->
+			<div style="margin-bottom: 10px;">
+				<button id="newButton" onclick="createNewFile()" <?php echo $unlocked ? '' : 'disabled'; ?>>New</button>
+				<button id="deleteButton" onclick="deleteFiles()" disabled>Delete</button>
+			</div>
+
+			<!-- Second Line: Upload, Download, and Checkbox -->
+			<div>
+				<button id="uploadButton" onclick="openUploadPopup()" <?php echo $unlocked ? '' : 'disabled'; ?>>Upload</button>
+				<button id="downloadButton" onclick="downloadFiles()" disabled>Download</button>
+				<label for="withPathCheckbox" style="margin-left: 10px;">
+					<input type="checkbox" id="withPathCheckbox" disabled> With Path
+				</label>
+			</div>
+		</div>
 		<p></p>
         <!-- Password form -->
         <div class="password-form">
@@ -256,7 +291,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         <!-- Editor header -->
 		<div id="editor-header">
 			<div>
-				<p><u>Current Directory:</u> <strong><?php echo $currentDir; ?></strong></p>
+				<!-- <p><u>Current Directory:</u> <strong><?php echo $currentDir; ?></strong></p> --!>
 				<p><u>Current File:</u> <b><span id="currentFile"></span></b></p>
 			</div>
 			<div>
@@ -292,6 +327,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 			<button id="saveButton" onclick="saveFile()" disabled>Save</button>
 			<button id="runButton" onclick="runFile()">Run</button>
 			<button id="runNewWindowButton" onclick="runFileInNewWindow()">Run in New Window</button>
+			<button id="fullEditorButton" onclick="openFullEditor()">Full Editor</button>
 			<label>
 				<input type="checkbox" id="autoRunCheckbox" checked> Automatic Run
 			</label>
@@ -341,13 +377,17 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 		function updateUI() {
 			const unlocked = document.cookie.includes('unlocked=true');
 			const fileSelected = document.querySelector('#fileList a.active') !== null;
+			const filesChecked = document.querySelectorAll('#fileList input[type="checkbox"]:checked').length > 0;
 
 			document.getElementById('addSubdirectoryButton').disabled = !unlocked;
 			document.getElementById('newButton').disabled = !unlocked;
+			document.getElementById('uploadButton').disabled = !unlocked; // Disable upload button when locked
 			document.getElementById('renameButton').disabled = !unlocked || !fileSelected;
 			document.getElementById('saveButton').disabled = !unlocked || !fileSelected;
-			document.getElementById('deleteButton').disabled = !unlocked || !fileSelected;
+			document.getElementById('deleteButton').disabled = !unlocked || !filesChecked;
 			document.getElementById('deleteDirectoryButton').disabled = !unlocked;
+			document.getElementById('downloadButton').disabled = !filesChecked; // Enable download button if files are selected
+			document.getElementById('withPathCheckbox').disabled = !filesChecked; // Enable checkbox if files are selected
 		}
 
 		// Function to show a temporary popup message
@@ -601,14 +641,6 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             });
         }
 
-        // Update the state of the Delete buttons
-        function updateDeleteButtonState() {
-            const fileCheckboxes = document.querySelectorAll('#fileList input[type="checkbox"]:checked');
-            const dirCheckboxes = document.querySelectorAll('#directoryList input[type="checkbox"]:checked');
-
-            document.getElementById('deleteButton').disabled = fileCheckboxes.length === 0 || !document.cookie.includes('unlocked=true');
-            document.getElementById('deleteDirectoryButton').disabled = dirCheckboxes.length === 0 || !document.cookie.includes('unlocked=true');
-        }
 
 		// Highlight the selected file and update button states
 		document.addEventListener('click', (e) => {
@@ -854,12 +886,205 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 			editor.refresh(); // Refresh the editor to apply the new font size
 		}
 
+		// Upload functionality
+		function openUploadPopup() {
+			document.getElementById('uploadPopup').style.display = 'block';
+			document.getElementById('uploadOverlay').style.display = 'block';
+		}
 
+		function closeUploadPopup() {
+			document.getElementById('uploadPopup').style.display = 'none';
+			document.getElementById('uploadOverlay').style.display = 'none';
+		}
+
+		function uploadFiles() {
+			const fileInput = document.getElementById('fileInput');
+			const files = fileInput.files;
+			if (files.length === 0) {
+				alert('Please select at least one file to upload.');
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append('folder', "<?php echo $currentDir; ?>"); // Add the current directory
+			for (let i = 0; i < files.length; i++) {
+				formData.append('files[]', files[i]);
+			}
+
+			fetch('upload.php', {
+				method: 'POST',
+				body: formData,
+			})
+			.then(response => response.text())
+			.then(message => {
+				showTempPopup(message);
+				closeUploadPopup();
+				window.location.reload(); // Refresh the page to show the new files
+			})
+			.catch(error => {
+				console.error('Error:', error);
+				showTempPopup('An error occurred while uploading files.');
+			});
+		}
+
+		// Download functionality
+		function downloadFiles() {
+			const checkboxes = document.querySelectorAll('#fileList input[type="checkbox"]:checked');
+			if (checkboxes.length === 0) {
+				showTempPopup('No files selected.');
+				return;
+			}
+
+			const currentDir = "<?php echo $currentDir; ?>";
+			const filesToDownload = Array.from(checkboxes).map(checkbox => {
+				const fileName = checkbox.value;
+				return `${currentDir}/${fileName}`; // Include the full relative path
+			});
+
+			const withPath = document.getElementById('withPathCheckbox').checked;
+
+			if (filesToDownload.length === 1 && !withPath) {
+				// Single file download (no ZIP)
+				const filePath = filesToDownload[0];
+				window.location.href = `download.php?file=${encodeURIComponent(filePath)}`; // Encode the file path
+			} else {
+				// Multiple files or "With Path" selected: create a ZIP
+				const script = withPath ? 'downloadzipwithfullpath.php' : 'download.php';
+
+				// Generate the ZIP file name
+				let zipFileName;
+				if (withPath) {
+					// Replace '/' with '-' for the full path
+					zipFileName = currentDir.replace(/\//g, '-') + '.zip';
+				} else {
+					// Use the current directory name for the ZIP file
+					zipFileName = currentDir.split('/').pop() + '.zip';
+				}
+
+				fetch(script, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						folder: "<?php echo $rootDir; ?>", // Always use the root directory as the base
+						files: filesToDownload,
+					}),
+				})
+				.then(response => {
+					if (response.ok) {
+						return response.blob();
+					} else {
+						throw new Error('Failed to download files.');
+					}
+				})
+				.then(blob => {
+					const url = window.URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = zipFileName; // Use the generated ZIP file name
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					window.URL.revokeObjectURL(url);
+
+					// Refresh button states after download
+					updateUI();
+				})
+				.catch(error => {
+					console.error('Error:', error);
+					showTempPopup('An error occurred while downloading files.');
+				});
+			}
+		}
+function openFullEditor() {
+			const currentDir = "<?php echo $currentDir; ?>";
+			const currentFile = document.querySelector('#fileList a.active')?.textContent;
+
+			if (!currentFile) {
+				showTempPopup('No file selected.');
+				return;
+			}
+
+			const url = `full_editor.php?dir=${currentDir}&file=${currentFile}`;
+			window.open(url, '_blank', 'width=800,height=600');
+		}
+
+		function downloadFilesWithPath() {
+			const checkboxes = document.querySelectorAll('#fileList input[type="checkbox"]:checked');
+			if (checkboxes.length === 0) {
+				showTempPopup('No files selected.');
+				return;
+			}
+
+			const currentDir = "<?php echo $currentDir; ?>";
+			const filesToDownload = Array.from(checkboxes).map(checkbox => {
+				const fileName = checkbox.value;
+				return `${currentDir}/${fileName}`; // Include the full relative path
+			});
+
+			fetch('downloadzipwithfullpath.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					folder: "<?php echo $rootDir; ?>", // Always use the root directory as the base
+					files: filesToDownload,
+				}),
+			})
+			.then(response => {
+				if (response.ok) {
+					return response.blob();
+				} else {
+					throw new Error('Failed to download files.');
+				}
+			})
+			.then(blob => {
+				const url = window.URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = 'files_with_path.zip'; // Default name for the ZIP file
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);
+			})
+			.catch(error => {
+				console.error('Error:', error);
+				showTempPopup('An error occurred while downloading files.');
+			});
+		}
+
+		// Update Download Button State
+		function updateDeleteButtonState() {
+			const fileCheckboxes = document.querySelectorAll('#fileList input[type="checkbox"]:checked');
+			const dirCheckboxes = document.querySelectorAll('#directoryList input[type="checkbox"]:checked');
+
+			const hasFilesSelected = fileCheckboxes.length > 0;
+			const isUnlocked = document.cookie.includes('unlocked=true');
+
+			document.getElementById('deleteButton').disabled = !hasFilesSelected || !isUnlocked;
+			document.getElementById('downloadButton').disabled = !hasFilesSelected;
+			document.getElementById('withPathCheckbox').disabled = !hasFilesSelected; // Enable/disable the checkbox
+		}
 
         // Load files on page load
         updateUI();
         updateDeleteButtonState();
     </script>
+
+	<!-- Upload Popup -->
+	<div id="uploadPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); z-index: 1000;">
+		<h3>Upload Files</h3>
+		<form id="uploadForm" enctype="multipart/form-data">
+			<input type="file" id="fileInput" name="files[]" multiple style="margin-bottom: 10px;">
+			<button type="button" onclick="closeUploadPopup()">Cancel</button>
+			<button type="button" onclick="uploadFiles()">Upload</button>
+		</form>
+	</div>
+	<div id="uploadOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 999;"></div>
+
 
 </body>
 </html>
