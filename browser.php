@@ -14,7 +14,7 @@ $files = array_filter(glob($currentDir . '/*'), 'is_file');
 $parentDir = dirname($currentDir);
 
 // Password protection
-$password = 'blablabla'; // Change this to your desired password
+$password = 'Nicolas'; // Change this to your desired password
 $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 ?>
 
@@ -155,7 +155,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         <!-- Add and Delete Directory buttons -->
         <div class="button-container">
             <button onclick="addSubdirectory()" id="addSubdirectoryButton" <?php echo $unlocked ? '' : 'disabled'; ?>>Add Subdirectory</button>
-            <button onclick="deleteSubdirectory()" id="deleteDirectoryButton" disabled>Delete Directory</button>
+            <button onclick="deleteSubdirectory()" id="deleteDirectoryButton" disabled>Delete Subdirectory</button>
         </div>
 
         <!-- Files -->
@@ -203,13 +203,14 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         <!-- Editor area -->
         <textarea id="fileContent" disabled></textarea>
 
-        <!-- Buttons -->
-        <div class="button-container">
-            <button id="copyButton" onclick="copyContent()">Copy</button>
-            <button id="saveButton" onclick="saveFile()" disabled>Save</button>
-            <button id="runButton" onclick="runFile()">Run</button>
-            <button id="runNewWindowButton" onclick="runFileInNewWindow()">Run in New Window</button>
-        </div>
+		<!-- Buttons -->
+		<div class="button-container">
+			<button id="copyButton" onclick="copyContent()">Copy</button>
+			<button id="renameButton" onclick="renameFile()" disabled>Rename</button>
+			<button id="saveButton" onclick="saveFile()" disabled>Save</button>
+			<button id="runButton" onclick="runFile()">Run</button>
+			<button id="runNewWindowButton" onclick="runFileInNewWindow()">Run in New Window</button>
+		</div>
 
         <!-- Horizontal draggable separator -->
         <div id="horizontal-separator"></div>
@@ -247,15 +248,16 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             location.reload(); // Refresh the page to apply changes
         }
 
-        // Update UI based on unlock state
-        function updateUI() {
-            const unlocked = document.cookie.includes('unlocked=true');
-            document.getElementById('addSubdirectoryButton').disabled = !unlocked;
-            document.getElementById('newButton').disabled = !unlocked;
-            document.getElementById('saveButton').disabled = !unlocked || !document.querySelector('#fileList a.active');
-            document.getElementById('deleteButton').disabled = !unlocked;
-            document.getElementById('deleteDirectoryButton').disabled = !unlocked;
-        }
+		// Update UI based on unlock state
+		function updateUI() {
+			const unlocked = document.cookie.includes('unlocked=true');
+			document.getElementById('addSubdirectoryButton').disabled = !unlocked;
+			document.getElementById('newButton').disabled = !unlocked;
+			document.getElementById('renameButton').disabled = !unlocked || !document.querySelector('#fileList a.active');
+			document.getElementById('saveButton').disabled = !unlocked || !document.querySelector('#fileList a.active');
+			document.getElementById('deleteButton').disabled = !unlocked;
+			document.getElementById('deleteDirectoryButton').disabled = !unlocked;
+		}
 
         // Copy content to clipboard
         function copyContent() {
@@ -285,6 +287,41 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
                     document.getElementById('currentFile').textContent = file;
                 });
         }
+
+		// Rename the selected file
+		function renameFile() {
+			const currentDir = "<?php echo $currentDir; ?>";
+			const file = document.querySelector('#fileList a.active').textContent;
+
+			if (!file) {
+				alert('No file selected.');
+				return;
+			}
+
+			const newFileName = prompt('Enter the new name for the file (e.g., newname.php):', file);
+			if (!newFileName || newFileName === file) return;
+
+			fetch('rename_file.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					folder: currentDir,
+					oldFile: file,
+					newFile: newFileName,
+				}),
+			})
+			.then(response => response.text())
+			.then(message => {
+				alert(message);
+				window.location.reload(); // Refresh the page to reflect the changes
+			})
+			.catch(error => {
+				console.error('Error:', error);
+				alert('An error occurred while renaming the file.');
+			});
+		}
 
         // Save edited content back to the file
         function saveFile() {
