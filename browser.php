@@ -24,6 +24,21 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Editor</title>
+	<!-- CodeMirror CSS -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+	<!-- CodeMirror Themes -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+	<!-- CodeMirror JavaScript -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+	<!-- CodeMirror Modes (for syntax highlighting) -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/php/php.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/yaml/yaml.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/shell/shell.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -122,6 +137,17 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             opacity: <?php echo $currentDir === $rootDir ? '0.5' : '1'; ?>;
             pointer-events: <?php echo $currentDir === $rootDir ? 'none' : 'auto'; ?>;
         }
+		/* Style for Up and Root buttons */
+		#upButton, #rootButton {
+			padding: 5px 10px;
+			margin-right: 5px;
+			cursor: pointer;
+		}
+
+		#upButton:disabled, #rootButton:disabled {
+			opacity: 0.5;
+			pointer-events: none;
+		}
         .password-form {
             margin-top: auto;
             padding: 10px;
@@ -132,25 +158,57 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             padding: 5px;
             margin-right: 5px;
         }
-    </style>
+		/* Ensure the editor container fills its parent */
+		#editor {
+			height: 100%; /* Fill the available height */
+			overflow: hidden; /* Prevent scrollbars */
+		}
+
+		/* Ensure the CodeMirror editor fills its container */
+		.CodeMirror {
+			height: 100%; /* Fill the height of the #editor container */
+		}
+		
+		#tempPopup {
+			position: fixed;
+			top: 20px;
+			right: 20px;
+			background-color: #4CAF50; /* Green background */
+			color: white; /* White text */
+			padding: 10px 20px;
+			border-radius: 5px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			z-index: 1000; /* Ensure it appears above other elements */
+			font-family: Arial, sans-serif;
+			font-size: 14px;
+			opacity: 0;
+			transition: opacity 0.3s ease-in-out;
+		}
+			</style>
 </head>
 <body>
     <!-- Sidebar for folder and file selection -->
-    <div id="sidebar">
-        <!-- Subdirectories -->
-        <h3>Subdirectories</h3>
-        <button id="upButton" onclick="navigateTo('<?php echo $parentDir; ?>')">Up</button>
-        <ul id="directoryList">
-																	  
-																								   
-						   
-            <?php foreach ($subdirs as $dir): ?>
-                <li class="directory-item">
-                    <input type="checkbox" value="<?php echo basename($dir); ?>" onchange="updateDeleteButtonState()">
-                    <span onclick="navigateTo('<?php echo $dir; ?>')"><?php echo basename($dir); ?></span>
-                </li>
-            <?php endforeach; ?>
-        </ul>
+	<!-- Sidebar for folder and file selection -->
+	<div id="sidebar">
+		<!-- Current Directory -->
+		<p><u>Current Directory:</u> <strong><?php echo $currentDir; ?></strong></p>
+
+		<!-- Root and Up buttons -->
+		<div class="button-container">
+			<button id="rootButton" onclick="navigateTo('<?php echo $rootDir; ?>')" <?php echo $currentDir === $rootDir ? 'disabled' : ''; ?>>Root</button>
+			<button id="upButton" onclick="navigateTo('<?php echo $parentDir; ?>')" <?php echo $currentDir === $rootDir ? 'disabled' : ''; ?>>Up</button>
+		</div>
+
+		<!-- Subdirectories -->
+		<p><u>Subdirectories:</u></p>
+		<ul id="directoryList">
+			<?php foreach ($subdirs as $dir): ?>
+				<li class="directory-item">
+					<input type="checkbox" value="<?php echo basename($dir); ?>" onchange="updateDeleteButtonState()">
+					<span onclick="navigateTo('<?php echo $dir; ?>')"><?php echo basename($dir); ?></span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
 
         <!-- Add and Delete Directory buttons -->
         <div class="button-container">
@@ -159,7 +217,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         </div>
 
         <!-- Files -->
-        <h3>Files</h3>
+        <p><u>Files:</u></p>
         <ul id="fileList">
             <?php foreach ($files as $file): ?>
                 <li class="file-item">
@@ -174,7 +232,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             <button id="newButton" onclick="createNewFile()" <?php echo $unlocked ? '' : 'disabled'; ?>>New</button>
             <button id="deleteButton" onclick="deleteFiles()" disabled>Delete</button>
         </div>
-
+		<p></p>
         <!-- Password form -->
         <div class="password-form">
             <?php if (!$unlocked): ?>
@@ -191,17 +249,41 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 
     <!-- Main content area for editing and running files -->
     <div id="content">
+	
+		<!-- Temporary Popup Container -->
+		<div id="tempPopup" style="display: none;"></div>
+	
         <!-- Editor header -->
-        <div id="editor-header">
-            <div>
-                <h2>Current Directory: <?php echo $currentDir; ?></h2>
-                <h2>Current File: <span id="currentFile"></span></h2>
-            </div>
-																		 
-        </div>
+		<div id="editor-header">
+			<div>
+				<p><u>Current Directory:</u> <strong><?php echo $currentDir; ?></strong></p>
+				<p><u>Current File:</u> <b><span id="currentFile"></span></b></p>
+			</div>
+			<div>
+				<!-- Language Dropdown -->
+				<select id="languageSelect" onchange="changeLanguage()">
+					<option value="htmlmixed">HTML</option>
+					<option value="php">PHP</option>
+					<option value="javascript">JavaScript</option>
+					<option value="css">CSS</option>
+					<option value="xml">XML</option>
+					<option value="yaml">YAML</option>
+					<option value="text/x-csrc">C</option>
+					<option value="text/x-c++src">C++</option>
+					<option value="shell">Shell</option>
+					<option value="plaintext">Plain Text</option>
+				</select>
+				<!-- Zoom Buttons -->
+				<button id="zoomOutButton" onclick="zoomOut()">-</button>
+				<button id="zoomInButton" onclick="zoomIn()">+</button>
+			</div>
+		</div>
 
-        <!-- Editor area -->
-        <textarea id="fileContent" disabled></textarea>
+        <!-- Old Editor area 
+        <textarea id="fileContent" disabled></textarea> -->
+		<!-- Editor area -->
+		<div id="editor"></div>
+
 
 		<!-- Buttons -->
 		<div class="button-container">
@@ -221,10 +303,12 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         <!-- Output frame -->
         <iframe id="outputFrame" src="about:blank"></iframe>
     </div>
+	
 
-    <script>
+    
+	<script>
         // Password protection
-        const password = 'Nicolas'; // Change this to your desired password
+        const password = 'Nicolas'; // Change this to your desired unlocking password
 
         // Unlock functionality
         function unlock() {
@@ -232,7 +316,8 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             if (passwordInput === password) {
                 setUnlocked(true);
                 updateUI();
-                alert('Unlocked!');
+                //alert('Unlocked!');
+				showTempPopup('Unlocked!');
             } else {
                 alert('Incorrect password.');
             }
@@ -242,7 +327,8 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
         function lock() {
             setUnlocked(false);
             updateUI();
-            alert('Locked!');
+            //alert('Locked!');
+			showTempPopup('Locked!');
         }
 
         // Set unlocked state in a cookie
@@ -264,62 +350,41 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 			document.getElementById('deleteDirectoryButton').disabled = !unlocked;
 		}
 
-        // Copy content to clipboard
-        function copyContent() {
-            const fileContent = document.getElementById('fileContent');
-            fileContent.select();
-            document.execCommand('copy');
-            // alert('Content copied to clipboard!');
-        }
+		// Function to show a temporary popup message
+		function showTempPopup(message) {
+			const popup = document.getElementById('tempPopup');
+			popup.textContent = message; // Set the message
+			popup.style.display = 'block'; // Show the popup
+			popup.style.opacity = '1'; // Fade in
+
+			// Hide the popup after 1 second
+			setTimeout(() => {
+				popup.style.opacity = '0'; // Fade out
+				setTimeout(() => {
+					popup.style.display = 'none'; // Hide completely
+				}, 300); // Wait for the fade-out transition to finish
+			}, 1000); // Display duration
+		}
+
+		// Updated copyContent function
+		function copyContent() {
+			const content = editor.getValue(); // Get content from CodeMirror
+
+			// Use the Clipboard API to copy the content
+			navigator.clipboard.writeText(content)
+				.then(() => {
+					showTempPopup('Content copied to clipboard!'); // Show temporary popup
+				})
+				.catch((error) => {
+					console.error('Failed to copy content: ', error);
+					showTempPopup('Failed to copy content. Please try again.'); // Show error message
+				});
+		}
 
         // Navigate to a directory
         function navigateTo(dir) {
             window.location.href = `browser.php?dir=${dir}`;
         }
-
-		// Load content of the selected file and run it
-		// Load content of the selected file
-		function loadFileContent(folder, file) {
-			const fileContent = document.getElementById('fileContent');
-			const outputFrame = document.getElementById('outputFrame');
-			const autoRunCheckbox = document.getElementById('autoRunCheckbox');
-
-			// List of file types that can be displayed in the editor
-			const editableFileTypes = ['.html', '.htm', '.php', '.txt', '.cfg', '.yml'];
-
-			// Get the file extension
-			const fileExtension = file.substring(file.lastIndexOf('.')).toLowerCase();
-
-			if (editableFileTypes.includes(fileExtension)) {
-				// Load the file content into the editor
-				fetch(`get_file.php?folder=${folder}&file=${file}`)
-					.then(response => response.text())
-					.then(content => {
-						fileContent.value = content;
-						fileContent.disabled = false;
-						document.getElementById('saveButton').disabled = !document.cookie.includes('unlocked=true');
-						document.getElementById('runButton').disabled = false;
-						document.getElementById('runNewWindowButton').disabled = false;
-						document.getElementById('currentFile').textContent = file;
-
-						// Automatically run the file if "Automatic Run" is checked
-						if (autoRunCheckbox.checked) {
-							runFile();
-						}
-					});
-			} else {
-				// For non-editable file types, clear the editor and render the file in the output panel
-				fileContent.value = '';
-				fileContent.disabled = true;
-				document.getElementById('saveButton').disabled = true;
-				document.getElementById('runButton').disabled = false;
-				document.getElementById('runNewWindowButton').disabled = false;
-				document.getElementById('currentFile').textContent = file;
-
-				// Render the file directly in the output panel
-				outputFrame.src = `${folder}/${file}`;
-			}
-		}
 
 		// Rename the selected file
 		function renameFile() {
@@ -327,7 +392,8 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 			const file = document.querySelector('#fileList a.active').textContent;
 
 			if (!file) {
-				alert('No file selected.');
+				//alert('No file selected.');
+				showTempPopup('No file selected.');
 				return;
 			}
 
@@ -347,35 +413,38 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
 			})
 			.then(response => response.text())
 			.then(message => {
-				alert(message);
+				//alert(message);
+				showTempPopup(message);
 				window.location.reload(); // Refresh the page to reflect the changes
 			})
 			.catch(error => {
 				console.error('Error:', error);
-				alert('An error occurred while renaming the file.');
+				//alert('An error occurred while renaming the file.');
+				showTempPopup('An error occurred while renaming the file.');
 			});
 		}
 
-        // Save edited content back to the file
-        function saveFile() {
-            const currentDir = "<?php echo $currentDir; ?>";
-            const fileContent = document.getElementById('fileContent');
-            const file = document.querySelector('#fileList a.active').textContent;
+		// Save edited content back to the file
+		function saveFile() {
+			const currentDir = "<?php echo $currentDir; ?>";
+			const file = document.querySelector('#fileList a.active').textContent;
+			const content = editor.getValue(); // Get content from CodeMirror
 
-            fetch('save_file.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    folder: currentDir,
-                    file: file,
-                    content: fileContent.value,
-                }),
-            })
-            .then(response => response.text())
-            //.then(message => alert(message));
-        }
+			fetch('save_file.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					folder: currentDir,
+					file: file,
+					content: content,
+				}),
+			})
+			.then(response => response.text())
+			//.then(message => alert(message));
+			.then(message => showTempPopup(message));
+		}
 
 		// Run the file in the iframe
 		function runFile() {
@@ -397,7 +466,8 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             const currentDir = "<?php echo $currentDir; ?>";
 
             if (!currentDir) {
-                alert('Please select a folder first.');
+                //alert('Please select a folder first.');
+				showTempPopup('Please select a folder first.');
                 return;
             }
 
@@ -418,6 +488,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             .then(message => {
                 if (message === "File created successfully.") {
                     // alert(message);
+					showTempPopup(message);
                     window.location.reload(); // Refresh the page to show the new file
                 } else {
                     alert(message); // Show error message
@@ -448,6 +519,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             .then(response => response.text())
             .then(message => {
                 // alert(message);
+				showTempPopup(message);
                 window.location.reload(); // Refresh the page to show the new directory
             })
             .catch(error => {
@@ -462,7 +534,8 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             const checkboxes = document.querySelectorAll('#directoryList input[type="checkbox"]:checked');
 
             if (checkboxes.length === 0) {
-                alert('No directories selected.');
+                //alert('No directories selected.');
+				showTempPopup('No directories selected.');
                 return;
             }
 
@@ -499,7 +572,8 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             const checkboxes = document.querySelectorAll('#fileList input[type="checkbox"]:checked');
 
             if (checkboxes.length === 0) {
-                alert('No files selected.');
+                //alert('No files selected.');
+				showTempPopup('No files selected.');
                 return;
             }
 
@@ -522,6 +596,7 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             .then(response => response.text())
             .then(message => {
                 // alert(message);
+				showTempPopup(message);
                 window.location.reload(); // Refresh the page to reflect the changes
             });
         }
@@ -572,39 +647,220 @@ $unlocked = isset($_COOKIE['unlocked']) && $_COOKIE['unlocked'] === 'true';
             document.removeEventListener('mousemove', onVerticalMouseMove);
             document.removeEventListener('mouseup', onVerticalMouseUp);
         }
+		// Variables to store the heights of the editor and output panels
+		let editorHeight = localStorage.getItem('editorHeight') || '50%'; // Default height (half of the available space)
+		let outputHeight = localStorage.getItem('outputHeight') || '50%'; // Default height (half of the available space)
 
-        // Draggable horizontal separator functionality
-        const horizontalSeparator = document.getElementById('horizontal-separator');
-        const fileContent = document.getElementById('fileContent');
-        const outputFrame = document.getElementById('outputFrame');
-        let isHorizontalDragging = false;
+		// Initialize CodeMirror
+		const editor = CodeMirror(document.getElementById('editor'), {
+			lineNumbers: true, // Show line numbers
+			theme: 'dracula',  // Use the Dracula theme
+			mode: 'htmlmixed', // Default mode
+			value: '',         // Initial content
+			viewportMargin: Infinity, // Allow the editor to expand vertically
+		});
 
-        horizontalSeparator.addEventListener('mousedown', (e) => {
-            isHorizontalDragging = true;
-            document.addEventListener('mousemove', onHorizontalMouseMove);
-            document.addEventListener('mouseup', onHorizontalMouseUp);
-        });
+		// Set initial heights
+		document.getElementById('editor').style.height = editorHeight;
+		document.getElementById('outputFrame').style.height = outputHeight;
 
-        function onHorizontalMouseMove(e) {
-            if (!isHorizontalDragging) return;
-            const offset = e.clientY;
-            const editorHeight = offset - fileContent.offsetTop;
-            const outputHeight = document.getElementById('content').offsetHeight - (offset - fileContent.offsetTop - horizontalSeparator.offsetHeight);
+		// Draggable horizontal separator functionality
+		const horizontalSeparator = document.getElementById('horizontal-separator');
+		const editorContainer = document.getElementById('editor');
+		const outputFrame = document.getElementById('outputFrame');
+		let isHorizontalDragging = false;
 
-            fileContent.style.height = `${editorHeight}px`;
-            outputFrame.style.height = `${outputHeight}px`;
-        }
+		horizontalSeparator.addEventListener('mousedown', (e) => {
+			isHorizontalDragging = true;
+			document.addEventListener('mousemove', onHorizontalMouseMove);
+			document.addEventListener('mouseup', onHorizontalMouseUp);
+		});
 
-        function onHorizontalMouseUp() {
-            isHorizontalDragging = false;
-            document.removeEventListener('mousemove', onHorizontalMouseMove);
-            document.removeEventListener('mouseup', onHorizontalMouseUp);
-        }
+		function onHorizontalMouseMove(e) {
+			if (!isHorizontalDragging) return;
+			const offset = e.clientY;
+			const newEditorHeight = offset - editorContainer.offsetTop;
+			const newOutputHeight = document.getElementById('content').offsetHeight - (offset - editorContainer.offsetTop - horizontalSeparator.offsetHeight);
+
+			// Update the stored heights
+			editorHeight = `${newEditorHeight}px`;
+			outputHeight = `${newOutputHeight}px`;
+
+			// Store the heights in localStorage
+			localStorage.setItem('editorHeight', editorHeight);
+			localStorage.setItem('outputHeight', outputHeight);
+
+			// Set the heights of the editor container and output frame
+			editorContainer.style.height = editorHeight;
+			outputFrame.style.height = outputHeight;
+
+			// Refresh CodeMirror to adjust its height
+			editor.refresh();
+		}
+
+		function onHorizontalMouseUp() {
+			isHorizontalDragging = false;
+			document.removeEventListener('mousemove', onHorizontalMouseMove);
+			document.removeEventListener('mouseup', onHorizontalMouseUp);
+		}
+
+		// Load content of the selected file
+		function loadFileContent(folder, file) {
+			const outputFrame = document.getElementById('outputFrame');
+			const autoRunCheckbox = document.getElementById('autoRunCheckbox');
+
+			// List of file types that can be displayed in the editor
+			const editableFileTypes = ['.html', '.htm', '.php', '.txt', '.cfg', '.yml', '.js', '.css', '.xml', '.yaml', '.c', '.cpp', '.sh', '.md'];
+
+			// Get the file extension
+			const fileExtension = file.substring(file.lastIndexOf('.')).toLowerCase();
+
+			if (editableFileTypes.includes(fileExtension)) {
+				// Load the file content into the editor
+				fetch(`get_file.php?folder=${folder}&file=${file}`)
+					.then(response => response.text())
+					.then(content => {
+						editor.setValue(content); // Set content in CodeMirror
+						editor.setOption('mode', getModeFromExtension(fileExtension)); // Set mode based on file extension
+						document.getElementById('saveButton').disabled = !document.cookie.includes('unlocked=true');
+						document.getElementById('runButton').disabled = false;
+						document.getElementById('runNewWindowButton').disabled = false;
+						document.getElementById('currentFile').textContent = file;
+
+						// Restore the stored heights
+						editorContainer.style.height = editorHeight;
+						outputFrame.style.height = outputHeight;
+
+						// Refresh CodeMirror to adjust its height
+						editor.refresh();
+
+						// Automatically run the file if "Automatic Run" is checked
+						if (autoRunCheckbox.checked) {
+							runFile();
+						}
+					});
+			} else {
+				// For non-editable file types, clear the editor and render the file in the output panel
+				editor.setValue(''); // Clear the editor
+				editor.setOption('mode', 'plaintext'); // Set mode to plain text
+				document.getElementById('saveButton').disabled = true;
+				document.getElementById('runButton').disabled = false;
+				document.getElementById('runNewWindowButton').disabled = false;
+				document.getElementById('currentFile').textContent = file;
+
+				// Restore the stored heights
+				editorContainer.style.height = editorHeight;
+				outputFrame.style.height = outputHeight;
+
+				// Render the file directly in the output panel
+				outputFrame.src = `${folder}/${file}`;
+			}
+		}
+
+		// Refresh CodeMirror on window resize
+		window.addEventListener('resize', () => {
+			editor.refresh();
+		});
+
+		// Change the language mode based on the selected option
+		function changeLanguage() {
+			const languageSelect = document.getElementById('languageSelect');
+			const mode = languageSelect.value;
+			editor.setOption('mode', mode);
+		}
+
+		// Load content into the editor
+		function loadFileContent(folder, file) {
+			const outputFrame = document.getElementById('outputFrame');
+			const autoRunCheckbox = document.getElementById('autoRunCheckbox');
+
+			// List of file types that can be displayed in the editor
+			const editableFileTypes = ['.html', '.htm', '.php', '.txt', '.cfg', '.yml', '.js', '.css', '.xml', '.yaml', '.c', '.cpp', '.sh', '.md'];
+
+			// Get the file extension
+			const fileExtension = file.substring(file.lastIndexOf('.')).toLowerCase();
+
+			if (editableFileTypes.includes(fileExtension)) {
+				// Load the file content into the editor
+				fetch(`get_file.php?folder=${folder}&file=${file}`)
+					.then(response => response.text())
+					.then(content => {
+						editor.setValue(content); // Set content in CodeMirror
+						editor.setOption('mode', getModeFromExtension(fileExtension)); // Set mode based on file extension
+						document.getElementById('saveButton').disabled = !document.cookie.includes('unlocked=true');
+						document.getElementById('runButton').disabled = false;
+						document.getElementById('runNewWindowButton').disabled = false;
+						document.getElementById('currentFile').textContent = file;
+
+						// Automatically run the file if "Automatic Run" is checked
+						if (autoRunCheckbox.checked) {
+							runFile();
+						}
+					});
+			} else {
+				// For non-editable file types, clear the editor and render the file in the output panel
+				editor.setValue(''); // Clear the editor
+				editor.setOption('mode', 'plaintext'); // Set mode to plain text
+				document.getElementById('saveButton').disabled = true;
+				document.getElementById('runButton').disabled = false;
+				document.getElementById('runNewWindowButton').disabled = false;
+				document.getElementById('currentFile').textContent = file;
+
+				// Render the file directly in the output panel
+				outputFrame.src = `${folder}/${file}`;
+			}
+		}
+
+		// Get the CodeMirror mode based on the file extension
+		function getModeFromExtension(extension) {
+			switch (extension) {
+				case '.html':
+				case '.htm':
+					return 'htmlmixed';
+				case '.php':
+					return 'php';
+				case '.js':
+					return 'javascript';
+				case '.css':
+					return 'css';
+				case '.xml':
+					return 'xml';
+				case '.yml':
+				case '.yaml':
+					return 'yaml';
+				case '.c':
+					return 'text/x-csrc';
+				case '.cpp':
+					return 'text/x-c++src';
+				case '.sh':
+					return 'shell';
+				case '.md':
+					return 'plaintext';
+				default:
+					return 'plaintext';
+			}
+		}
+
+		// Zoom functionality
+		function zoomIn() {
+			const currentSize = parseInt(window.getComputedStyle(editor.getWrapperElement()).fontSize);
+			editor.getWrapperElement().style.fontSize = `${currentSize + 2}px`;
+			editor.refresh(); // Refresh the editor to apply the new font size
+		}
+
+		function zoomOut() {
+			const currentSize = parseInt(window.getComputedStyle(editor.getWrapperElement()).fontSize);
+			editor.getWrapperElement().style.fontSize = `${Math.max(currentSize - 2, 10)}px`; // Minimum font size of 10px
+			editor.refresh(); // Refresh the editor to apply the new font size
+		}
+
+
 
         // Load files on page load
         updateUI();
         updateDeleteButtonState();
     </script>
+
 </body>
 </html>
 		 
